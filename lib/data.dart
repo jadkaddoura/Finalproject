@@ -1,13 +1,8 @@
-class data {
+class Data {
   final String name;
   final String date;
-  String checkIn;
-  String checkOut;
+  final String checkIn;
+  final String checkOut;
 
-  data(
-      this.name,
-      this.date, {
-        this.checkIn = "",
-        this.checkOut = "",
-      });
+  Data(this.name, this.date, {this.checkIn = "", this.checkOut = ""});
 }

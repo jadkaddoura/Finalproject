@@ -1,78 +1,64 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'data.dart';
 
 class RecordsPage extends StatefulWidget {
-  final List<data> records;
-
-  const RecordsPage(this.records, {super.key});
+  const RecordsPage({super.key});
 
   @override
   State<RecordsPage> createState() => _RecordsPageState();
 }
 
 class _RecordsPageState extends State<RecordsPage> {
-  String searchText = "";
+  List<Data> records = [];
+  final String baseUrl = "https://simarnouredine.atwebpages.com";
 
-  void _deleteRecord(int index) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Delete Record"),
-          content: const Text("Are you sure you want to delete this record?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  widget.records.removeAt(index);
-                });
-                Navigator.pop(context);
-              },
-              child: const Text("Delete"),
-            ),
-          ],
-        );
-      },
-    );
+  @override
+  void initState() {
+    super.initState();
+    fetchRecords();
+  }
+
+  Future<void> fetchRecords() async {
+    final response = await http.get(Uri.parse("$baseUrl/get_attendance.php"));
+    final List data = json.decode(response.body);
+
+    setState(() {
+      records = data.map((e) => Data(
+        e['name'],
+        e['date'],
+        checkIn: e['check_in'] ?? "",
+        checkOut: e['check_out'] ?? "",
+      )).toList();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredRecords = widget.records.where((a) {
-      return a.name.toLowerCase().contains(searchText.toLowerCase());
-    }).toList();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("work Records"),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: TextField(
-              onChanged: (value) {
-                setState(() {
-                  searchText = value;
-                });
-              },
-              decoration: const InputDecoration(
-                hintText: "Search by name",
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(),
-              ),
-            ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () async {
+              await showSearch(
+                context: context,
+                delegate: _SearchDelegate(records),
+              );
+            },
           ),
-        ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: fetchRecords,
+          ),
+        ],
       ),
       body: ListView.builder(
-        itemCount: filteredRecords.length,
+        itemCount: records.length,
         itemBuilder: (context, index) {
-          final a = filteredRecords[index];
+          final a = records[index];
           return Card(
             child: ListTile(
               title: Text(a.name),
@@ -81,14 +67,41 @@ class _RecordsPageState extends State<RecordsPage> {
                     "Check In: ${a.checkIn}\n"
                     "Check Out: ${a.checkOut}",
               ),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () => _deleteRecord(index),
-              ),
             ),
           );
         },
       ),
     );
   }
+}
+
+class _SearchDelegate extends SearchDelegate {
+  final List<Data> records;
+  _SearchDelegate(this.records);
+
+  @override
+  List<Widget>? buildActions(BuildContext context) => [
+    IconButton(icon: const Icon(Icons.clear), onPressed: () => query = "")
+  ];
+
+  @override
+  Widget? buildLeading(BuildContext context) =>
+      IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => close(context, null));
+
+  @override
+  Widget buildResults(BuildContext context) {
+    final results = records
+        .where((r) => r.name.toLowerCase().contains(query.toLowerCase()))
+        .toList();
+
+    return ListView(
+      children: results.map((r) => ListTile(
+        title: Text(r.name),
+        subtitle: Text("In: ${r.checkIn} | Out: ${r.checkOut}"),
+      )).toList(),
+    );
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) => buildResults(context);
 }
