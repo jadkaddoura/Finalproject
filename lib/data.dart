@@ -3,6 +3,8 @@ class Data {
   final String date;
   final String checkIn;
   final String checkOut;
+  final String id;
 
-  Data(this.name, this.date, {this.checkIn = "", this.checkOut = ""});
+  Data(this.name, this.date,
+      {this.checkIn = "", this.checkOut = "", required this.id});
 }

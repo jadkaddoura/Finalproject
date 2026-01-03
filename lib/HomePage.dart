@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'RecordsPage.dart';
+import 'records.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,6 +14,7 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController nameController = TextEditingController();
 
   String currentTime = "";
+  String currentDate = "";
   Timer? timer;
 
   final String baseUrl = "https://simarnouredine.atwebpages.com";
@@ -30,34 +30,37 @@ class _HomePageState extends State<HomePage> {
     final now = DateTime.now();
     setState(() {
       currentTime =
-      "${now.hour.toString().padLeft(2, '0')}:"
-          "${now.minute.toString().padLeft(2, '0')}:"
-          "${now.second.toString().padLeft(2, '0')}";
+      "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+      currentDate =
+      "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
     });
+  }
+
+  void resetForm() {
+    nameController.clear();
+    FocusScope.of(context).unfocus();
   }
 
   Future<void> checkIn() async {
     final name = nameController.text.trim();
     if (name.isEmpty) return;
 
-    final resp = await http.post(
-      Uri.parse("$baseUrl/add_attendance.php"),
-      body: {
-        'name': name,
-        'date': DateTime.now().toString().substring(0, 10),
-        'check_in': DateTime.now().toString().substring(11, 19),
-      },
-    );
+    final encodedName = Uri.encodeComponent(name);
 
-    final body = json.decode(resp.body);
-    if (body["success"] == true) {
+    final url = Uri.parse(
+        "$baseUrl/add_attendance.php?name=$encodedName&date=$currentDate&check_in=$currentTime");
+
+    try {
+      final response = await http.get(url);
+      print("Check-in response: ${response.body}");
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Checked in ✅")),
+        const SnackBar(content: Text("Checked in successfully")),
       );
-      nameController.clear();
-    } else {
+      resetForm();
+    } catch (e) {
+      print("Check-in error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Check-in failed: ${body["error"] ?? "Unknown"}")),
+        SnackBar(content: Text("Check-in failed: $e")),
       );
     }
   }
@@ -66,23 +69,22 @@ class _HomePageState extends State<HomePage> {
     final name = nameController.text.trim();
     if (name.isEmpty) return;
 
-    final resp = await http.post(
-      Uri.parse("$baseUrl/update_checkout.php"),
-      body: {
-        'name': name,
-        'check_out': DateTime.now().toString().substring(11, 19),
-      },
-    );
+    final encodedName = Uri.encodeComponent(name);
 
-    final body = json.decode(resp.body);
-    if (body["success"] == true) {
+    final url =
+    Uri.parse("$baseUrl/update_checkout.php?name=$encodedName&check_out=$currentTime");
+
+    try {
+      final response = await http.get(url);
+      print("Check-out response: ${response.body}");
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Checked out ✅")),
+        const SnackBar(content: Text("Checked out successfully")),
       );
-      nameController.clear();
-    } else {
+      resetForm();
+    } catch (e) {
+      print("Check-out error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Check-out failed: ${body["error"] ?? "Unknown"}")),
+        SnackBar(content: Text("Check-out failed: $e")),
       );
     }
   }
@@ -98,18 +100,28 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: 90,
-        leading: const SizedBox(),
+        backgroundColor: Colors.black,
+        leadingWidth: 120,
+        leading: Center(
+          child: Text(
+            currentDate,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ),
         centerTitle: true,
         title: Text(
           currentTime,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.list),
-            onPressed: () {
-              Navigator.push(
+            icon: const Icon(Icons.list, color: Colors.white),
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const RecordsPage()),
               );
@@ -123,8 +135,12 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
-              'Welcome please enter your name',
-              style: TextStyle(color: Colors.blueAccent, fontSize: 18, fontStyle: FontStyle.italic),
+              "Welcome, please enter your name",
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.blueAccent,
+                fontStyle: FontStyle.italic,
+              ),
             ),
             const SizedBox(height: 30),
             TextField(
@@ -138,8 +154,14 @@ class _HomePageState extends State<HomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                ElevatedButton(onPressed: checkIn, child: const Text("Check In")),
-                ElevatedButton(onPressed: checkOut, child: const Text("Check Out")),
+                ElevatedButton(
+                  onPressed: checkIn,
+                  child: const Text("Check In"),
+                ),
+                ElevatedButton(
+                  onPressed: checkOut,
+                  child: const Text("Check Out"),
+                ),
               ],
             ),
           ],
